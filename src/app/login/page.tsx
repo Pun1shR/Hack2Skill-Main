@@ -1,19 +1,28 @@
 'use client';
 
-import { supabase } from '@/lib/supabase';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import { Moon, Sun } from 'lucide-react';
+import { USERS, MOCK_PASSWORDS } from '@/lib/db';
 
 export default function Login() {
   const { theme, toggleTheme } = useTheme();
+  const router = useRouter();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/onboarding`
-      }
-    });
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (MOCK_PASSWORDS[username] && MOCK_PASSWORDS[username] === password) {
+      localStorage.setItem('guru_user_id', username);
+      router.push('/chat');
+    } else {
+      setError('Invalid cosmic credentials. Try "med" or "eng".');
+    }
   };
 
   return (
@@ -37,11 +46,30 @@ export default function Login() {
 
       <div className="glass" style={{ padding: '3rem', textAlign: 'center', maxWidth: '400px', width: '100%' }}>
         <h1 style={{ fontSize: '2rem', marginBottom: '1rem', fontWeight: 600 }}>Cosmic Guru AI</h1>
-        <p style={{ marginBottom: '2rem', opacity: 0.8 }}>Your personal guide to calm, focus, and exam preparation.</p>
+        <p style={{ marginBottom: '2rem', opacity: 0.8 }}>Login to begin your preparation journey.</p>
         
-        <button className="btn" onClick={handleGoogleLogin} style={{ width: '100%' }}>
-          Sign in with Google
-        </button>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <input 
+            type="text" 
+            placeholder="Username (e.g. med or eng)" 
+            className="input-field" 
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            required
+          />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            className="input-field" 
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+          {error && <p style={{ color: '#ff6b6b', fontSize: '0.9rem' }}>{error}</p>}
+          <button type="submit" className="btn" style={{ width: '100%', marginTop: '1rem' }}>
+            Enter the Cosmos
+          </button>
+        </form>
       </div>
     </div>
   );

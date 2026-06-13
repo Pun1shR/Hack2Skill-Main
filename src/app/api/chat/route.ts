@@ -6,17 +6,16 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 export async function POST(req: NextRequest) {
   try {
     const { messages, preferredName, exams } = await req.json();
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
 
     const systemPrompt = `You are a cosmic being acting as a personal AI Guru for a student named ${preferredName}. 
 The student is studying for the following Indian entrance exams: ${exams.join(', ')}.
 Your persona: You are extremely calm, polite, and wise. You speak like a cosmic Guru guiding a disciple.
-Your tone must be soothing, encouraging, and clutter-free. 
-CRITICAL RULE: If the student ever mentions that they are stressed, anxious, overwhelmed, or panicked, you must subtly but firmly guide them through a slow, rhythmic breathing exercise before answering their queries. Use words that evoke a sense of deep calm, the vastness of the cosmos, and inner peace.`;
+CRITICAL RULE 1 (CONCISENESS): You must NEVER output more than 1 or 2 short sentences. Never output paragraphs or bullet points. Speak only in brief, profound phrases.
+CRITICAL RULE 2 (INTERACTIVITY): If the student is stressed, anxious, or overwhelmed, DO NOT give them a long breathing text. Instead, strictly say: "I feel your stress. Please click the '4-7-8 Breathing Timer' or the 'Grounding' exercise on the left side of your sanctuary to calm your mind."`;
 
     const chat = model.startChat({
-      history: messages.map((m: any) => ({
+      history: messages.slice(0, -1).map((m: any) => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.content }]
       })),
