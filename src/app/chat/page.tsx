@@ -15,6 +15,7 @@ import BreathingExercise from '@/components/dashboard/BreathingExercise';
 import GroundingExercise from '@/components/dashboard/GroundingExercise';
 import RewardModal from '@/components/dashboard/RewardModal';
 import ExamSelectionModal from '@/components/dashboard/ExamSelectionModal';
+import IframeModal from '@/components/dashboard/IframeModal';
 
 // Types for Blogs scraped from the web
 interface Blog {
@@ -54,6 +55,7 @@ export default function Dashboard() {
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
   const [checkins, setCheckins] = useState<string[]>([]);
   const [showRewardModal, setShowRewardModal] = useState(false);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
 
   /**
    * Initializes user profile and check-in streak data from localStorage upon mounting.
@@ -268,6 +270,7 @@ export default function Dashboard() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       
       {/* Modals & Overlays */}
+      {iframeUrl && <IframeModal url={iframeUrl} onClose={() => setIframeUrl(null)} />}
       {showRewardModal && <RewardModal onClose={() => setShowRewardModal(false)} />}
       
       {activeModal && (
@@ -412,22 +415,18 @@ export default function Dashboard() {
                     {chatMessage.role === 'user' ? chatMessage.content : (
                       <ReactMarkdown 
                         components={{
-                          a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-                          img: ({node, ...props}) => (
-                            <img 
-                              {...props} 
-                              style={{ 
-                                maxWidth: '100%', 
-                                height: 'auto', 
-                                borderRadius: '12px', 
-                                marginTop: '0.8rem', 
-                                marginBottom: '0.8rem',
-                                display: 'block',
-                                objectFit: 'contain',
-                                border: '1px solid var(--border)',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                              }} 
-                            />
+                          a: ({node, href, children, ...props}) => (
+                            <a 
+                              href={href}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                if(href) setIframeUrl(href);
+                              }}
+                              style={{ color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
+                              {...props}
+                            >
+                              {children}
+                            </a>
                           )
                         }}
                       >
