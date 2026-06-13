@@ -192,5 +192,34 @@ a {
 
 @keyframes twinkle {
   0%, 100% { opacity: 0.1; }
-  50% { opacity: 0.8; }
 }
+
+/* Markdown Rendering */
+.markdown-body p { margin-bottom: 0.5rem; }
+.markdown-body p:last-child { margin-bottom: 0; }
+.markdown-body ul, .markdown-body ol { margin-left: 1.5rem; margin-bottom: 0.5rem; }
+.markdown-body li { margin-bottom: 0.25rem; }
+.markdown-body a { color: var(--primary); text-decoration: underline; font-weight: 500; }
+.markdown-body strong { font-weight: 600; }
+
+/* Aesthetic Cosmic Loader */
+.cosmic-loader {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.cosmic-loader span {
+  width: 8px;
+  height: 8px;
+  background-color: var(--primary);
+  border-radius: 50%;
+  animation: cosmic-bounce 1.4s infinite ease-in-out both;
+}
+.cosmic-loader span:nth-child(1) { animation-delay: -0.32s; }
+.cosmic-loader span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes cosmic-bounce {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; box-shadow: 0 0 10px var(--primary-glow); }
+}
+

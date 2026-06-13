@@ -8,13 +8,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const userId = localStorage.getItem('guru_user_id');
-    
-    if (!userId) {
-      router.push('/login');
-    } else {
-      router.push('/chat');
-    }
+    // Auto-login as engineering student per request
+    localStorage.setItem('guru_user_id', 'eng');
+    router.push('/chat');
   }, [router]);
 
   return (

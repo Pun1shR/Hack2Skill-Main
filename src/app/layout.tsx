@@ -17,9 +17,6 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <ThemeProvider>
-          <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 50 }}>
-            <AudioPlayer />
-          </div>
           {children}
         </ThemeProvider>
       </body>

@@ -2,110 +2,38 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, Moon, Sun, Loader2, LogOut, Heart, BookOpen, Wind, X, CheckSquare, Square } from 'lucide-react';
+import { Send, Moon, Sun, LogOut, Heart, BookOpen, Wind } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
+import AudioPlayer from '@/components/AudioPlayer';
 import { USERS, User } from '@/lib/db';
 import Image from 'next/image';
+import ReactMarkdown from 'react-markdown';
 
-// Types for Blogs
+// Extracted Dashboard Components
+import CheckinTracker from '@/components/dashboard/CheckinTracker';
+import BreathingExercise from '@/components/dashboard/BreathingExercise';
+import GroundingExercise from '@/components/dashboard/GroundingExercise';
+import RewardModal from '@/components/dashboard/RewardModal';
+import ExamSelectionModal from '@/components/dashboard/ExamSelectionModal';
+
+// Types for Blogs scraped from the web
 interface Blog {
   title: string;
   link: string;
   source: string;
 }
 
-// Sub-components for Exercises
-function BreathingExercise({ onClose }: { onClose: () => void }) {
-  const [phase, setPhase] = useState('Inhale');
-  const [timer, setTimer] = useState(4);
+const AVAILABLE_EXAMS = ['NEET', 'JEE', 'GATE', 'CAT', 'CUET', 'UPSC'];
 
-  useEffect(() => {
-    let currentPhase = 'Inhale';
-    let timeLeft = 4;
-    
-    const interval = setInterval(() => {
-      timeLeft--;
-      if (timeLeft <= 0) {
-        if (currentPhase === 'Inhale') {
-          currentPhase = 'Hold';
-          timeLeft = 7;
-        } else if (currentPhase === 'Hold') {
-          currentPhase = 'Exhale';
-          timeLeft = 8;
-        } else {
-          currentPhase = 'Inhale';
-          timeLeft = 4;
-        }
-        setPhase(currentPhase);
-      }
-      setTimer(timeLeft);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="glass animate-fade-in-up" style={{ padding: '3rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', position: 'relative', width: '100%', maxWidth: '500px' }}>
-      <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }}>
-        <X size={24} />
-      </button>
-      <h2 style={{ fontSize: '1.8rem', marginBottom: '2rem' }}>4-7-8 Breathing</h2>
-      
-      <div className="breathing-circle" style={{ 
-        width: '200px', height: '200px', 
-        animationDuration: phase === 'Inhale' ? '4s' : phase === 'Exhale' ? '8s' : '0s',
-        animationPlayState: phase === 'Hold' ? 'paused' : 'running',
-        transform: phase === 'Hold' ? 'scale(1.2)' : undefined
-      }}>
-        <div style={{ position: 'absolute', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ fontSize: '2rem', fontWeight: 600 }}>{phase}</span>
-          <span style={{ fontSize: '3rem', fontWeight: 300 }}>{timer}</span>
-        </div>
-      </div>
-      <p style={{ marginTop: '2rem', opacity: 0.8 }}>Focus on your breath. Let go of the exam stress.</p>
-    </div>
-  );
-}
-
-function GroundingExercise({ onClose }: { onClose: () => void }) {
-  const [checked, setChecked] = useState<number[]>([]);
-  const steps = [
-    { label: "Find 5 things you can see around you." },
-    { label: "Find 4 things you can physically feel." },
-    { label: "Find 3 things you can hear right now." },
-    { label: "Find 2 things you can smell." },
-    { label: "Find 1 good thing you can taste or imagine tasting." }
-  ];
-
-  const toggle = (i: number) => {
-    if (checked.includes(i)) setChecked(checked.filter(n => n !== i));
-    else setChecked([...checked, i]);
-  };
-
-  return (
-    <div className="glass animate-fade-in-up" style={{ padding: '2rem', position: 'relative', width: '100%', maxWidth: '500px' }}>
-      <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }}>
-        <X size={24} />
-      </button>
-      <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>5-4-3-2-1 Grounding</h2>
-      <p style={{ opacity: 0.8, marginBottom: '2rem' }}>Look away from the screen and check these off as you find them.</p>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {steps.map((step, i) => (
-          <div key={i} onClick={() => toggle(i)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: checked.includes(i) ? 'var(--primary-glow)' : 'var(--input-bg)', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.3s ease' }}>
-            {checked.includes(i) ? <CheckSquare color="var(--primary)" /> : <Square opacity={0.5} />}
-            <span style={{ textDecoration: checked.includes(i) ? 'line-through' : 'none', opacity: checked.includes(i) ? 0.6 : 1 }}>{step.label}</span>
-          </div>
-        ))}
-      </div>
-      {checked.length === 5 && <p style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 'bold' }}>You are safe. You are grounded.</p>}
-    </div>
-  );
-}
-
+/**
+ * Main Dashboard interface for the Cosmic Guru application.
+ * Manages chat state, local storage synchronization, exercise modals, and the daily streak tracker.
+ */
 export default function Dashboard() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   
+  // --- Chat & UI States ---
   const [messages, setMessages] = useState<{role: string, content: string}[]>([{
     role: 'model',
     content: 'Welcome, young seeker. I am your cosmic guide. How may I assist you on your journey today?'
@@ -113,25 +41,69 @@ export default function Dashboard() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isStressed, setIsStressed] = useState(false);
-  
-  const [userProfile, setUserProfile] = useState<User | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // New states for Advanced Features
+  // --- User & App Data States ---
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loadingBlogs, setLoadingBlogs] = useState(true);
+  
+  // --- Modal & Tracking States ---
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [showExamModal, setShowExamModal] = useState(false);
+  const [selectedExams, setSelectedExams] = useState<string[]>([]);
+  const [checkins, setCheckins] = useState<string[]>([]);
+  const [showRewardModal, setShowRewardModal] = useState(false);
 
+  /**
+   * Initializes user profile and check-in streak data from localStorage upon mounting.
+   * If the user doesn't have 5 days of check-ins, dummy data is injected to demonstrate the reward UI.
+   */
   useEffect(() => {
     const userId = localStorage.getItem('guru_user_id');
     if (!userId || !USERS[userId]) {
       router.push('/login');
+      return;
+    } 
+
+    const profile = { ...USERS[userId] };
+    
+    // Check if exams were already selected in local storage
+    const savedExams = localStorage.getItem('guru_selected_exams');
+    if (savedExams) {
+      profile.exams = JSON.parse(savedExams);
+      setUserProfile(profile);
     } else {
-      setUserProfile(USERS[userId]);
+      setUserProfile(profile);
+      setShowExamModal(true);
     }
+
+    // Load Checkins from localStorage
+    let checkinArray = [];
+    const savedCheckins = localStorage.getItem('guru_checkin_dates');
+    if (savedCheckins) {
+      checkinArray = JSON.parse(savedCheckins);
+    }
+
+    // FORCE DUMMY DATA FOR TESTING 5 DAY STREAK
+    // Injects 5 consecutive days of check-ins so the reward UI is immediately testable.
+    if (checkinArray.length < 5 || !localStorage.getItem('guru_claimed_reward')) {
+      const today = new Date();
+      checkinArray = [];
+      for(let dayOffset = 0; dayOffset < 5; dayOffset++) {
+        const targetDate = new Date();
+        targetDate.setDate(today.getDate() - dayOffset);
+        checkinArray.push(targetDate.toISOString().split('T')[0]);
+      }
+      localStorage.setItem('guru_checkin_dates', JSON.stringify(checkinArray));
+    }
+    
+    setCheckins(checkinArray);
   }, [router]);
 
-  // Scrape blogs on load
+  /**
+   * Scrapes mental health and wellness blogs dynamically from the API route.
+   */
   useEffect(() => {
     fetch('/api/blogs')
       .then(res => res.json())
@@ -142,33 +114,105 @@ export default function Dashboard() {
       .catch(() => setLoadingBlogs(false));
   }, []);
 
+  /**
+   * Auto-scrolls the chat window to the bottom when new messages arrive.
+   */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStressed]);
 
+  /**
+   * Clears session data and redirects the user to the login page.
+   */
   const handleLogout = () => {
     localStorage.removeItem('guru_user_id');
+    localStorage.removeItem('guru_selected_exams');
     router.push('/login');
   };
 
+  /**
+   * Saves the user's selected exams to localStorage and updates the profile state.
+   */
+  const handleSaveExams = () => {
+    if (selectedExams.length === 0) return;
+    localStorage.setItem('guru_selected_exams', JSON.stringify(selectedExams));
+    if (userProfile) {
+      setUserProfile({ ...userProfile, exams: selectedExams });
+    }
+    setShowExamModal(false);
+  };
+
+  /**
+   * Toggles exam selection state in the onboarding modal.
+   */
+  const toggleExam = (exam: string) => {
+    if (selectedExams.includes(exam)) {
+      setSelectedExams(selectedExams.filter(e => e !== exam));
+    } else {
+      setSelectedExams([...selectedExams, exam]);
+    }
+  };
+
+  /**
+   * Checks if the user has maintained a continuous 5-day check-in streak.
+   * @param newCheckins Array of ISO date strings representing days the user checked in.
+   * @returns boolean true if the last 5 days exist in the array.
+   */
+  const checkStreak = (newCheckins: string[]) => {
+    const today = new Date();
+    for(let dayOffset = 0; dayOffset < 5; dayOffset++) {
+      const targetDate = new Date();
+      targetDate.setDate(today.getDate() - dayOffset);
+      if (!newCheckins.includes(targetDate.toISOString().split('T')[0])) {
+        return false;
+      }
+    }
+    return true;
+  };
+  
+  const hasReward = checkStreak(checkins);
+
+  /**
+   * Opens the Reward modal when the golden gift box is clicked.
+   */
+  const handleRewardClick = () => {
+    setShowRewardModal(true);
+    localStorage.setItem('guru_claimed_reward', 'true');
+  };
+
+  /**
+   * Submits the user's message to the Gemini Generative AI backend.
+   * Handles local storage check-in persistence, simple stress keyword detection, and real-time text streaming.
+   */
   const handleSend = async () => {
     if (!input.trim() || !userProfile) return;
     
     const userMessage = input.trim();
     setInput('');
+
+    // --- Record Check-in Logic ---
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (!checkins.includes(todayStr)) {
+      const updatedCheckins = [...checkins, todayStr];
+      setCheckins(updatedCheckins);
+      localStorage.setItem('guru_checkin_dates', JSON.stringify(updatedCheckins));
+    }
     
-    // Simple stress detection for UI animation
+    // --- Stress Detection ---
+    // Simple heuristic to detect if the user is overwhelmed, triggering a subtle UI reminder to breathe.
     const stressWords = ['stress', 'anxious', 'panic', 'overwhelm', 'scared', 'nervous'];
     if (stressWords.some(word => userMessage.toLowerCase().includes(word))) {
       setIsStressed(true);
-      setTimeout(() => setIsStressed(false), 24000); // Show breathing for 24s (3 cycles)
+      setTimeout(() => setIsStressed(false), 24000); // 24s corresponds to exactly 3 cycles of 4-7-8 breathing
     }
 
+    // --- Prepare Messages ---
     const newMessages = [...messages, { role: 'user', content: userMessage }];
     setMessages(newMessages);
     setLoading(true);
 
     try {
+      // Connect to the Next.js API route that interfaces with the Google Generative AI SDK
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,13 +223,15 @@ export default function Dashboard() {
         }),
       });
 
-      if (!response.body) throw new Error("No body");
+      if (!response.body) throw new Error("No response body received from the cosmic API.");
 
+      // Read the streamed response chunk by chunk to create a real-time typing effect
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let done = false;
       let text = '';
 
+      // Append an empty model message block that we will continuously update as chunks arrive
       setMessages(prev => [...prev, { role: 'model', content: '' }]);
 
       while (!done) {
@@ -193,6 +239,8 @@ export default function Dashboard() {
         done = doneReading;
         const chunkValue = decoder.decode(value, { stream: true });
         text += chunkValue;
+        
+        // Update the last message in the array with the accumulated text
         setMessages(prev => {
           const updated = [...prev];
           updated[updated.length - 1].content = text;
@@ -207,17 +255,35 @@ export default function Dashboard() {
     }
   };
 
-  if (!userProfile) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Connecting to the cosmos...</div>;
+  // Render a loading state if the user profile hasn't initialized from local storage yet.
+  if (!userProfile) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        Connecting to the cosmos...
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       
-      {/* Interactive Modal Overlay */}
+      {/* Modals & Overlays */}
+      {showRewardModal && <RewardModal onClose={() => setShowRewardModal(false)} />}
+      
       {activeModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)' }}>
           {activeModal === 'breathing' && <BreathingExercise onClose={() => setActiveModal(null)} />}
           {activeModal === 'grounding' && <GroundingExercise onClose={() => setActiveModal(null)} />}
         </div>
+      )}
+
+      {showExamModal && (
+        <ExamSelectionModal 
+          availableExams={AVAILABLE_EXAMS} 
+          selectedExams={selectedExams} 
+          onToggleExam={toggleExam} 
+          onSave={handleSaveExams} 
+        />
       )}
 
       {/* Serene Landscape Banner */}
@@ -233,10 +299,11 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* Header */}
+      {/* Global Header */}
       <header className="glass animate-fade-in-up" style={{ margin: '1rem', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '16px', position: 'relative', zIndex: 10 }}>
         <h1 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Sanctuary</h1>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <AudioPlayer />
           <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }} title="Toggle Theme">
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>
@@ -249,8 +316,8 @@ export default function Dashboard() {
       {/* Main Dashboard Layout */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', padding: '2rem', flex: 1, position: 'relative', zIndex: 10 }}>
         
-        {/* Left Sanctuary (Mascot, Affirmations, Exercises) */}
-        <div style={{ flex: '1 1 600px', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        {/* Left Sanctuary Area: Mascot, Affirmations, Exercises, and Blogs */}
+        <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
           <div className="animate-fade-in-up delay-100" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
             <Image src="/guru-mascot.png" alt="Cosmic Guru Mascot" width={180} height={180} style={{ borderRadius: '50%', background: 'var(--card-bg)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }} />
@@ -263,8 +330,8 @@ export default function Dashboard() {
           </div>
 
           <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-            {/* Mind Control / Exercises Wrapper */}
-            <div className="glass animate-fade-in-up delay-200" style={{ flex: 1, padding: '2rem', minWidth: '280px' }}>
+            {/* Mind Control Exercises Wrapper */}
+            <div className="glass animate-fade-in-up delay-200" style={{ flex: 1, padding: '2rem', minWidth: '250px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
                 <Wind size={24} color="var(--primary)" />
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 500 }}>Mind Control Exercises</h3>
@@ -281,21 +348,23 @@ export default function Dashboard() {
               </ul>
             </div>
 
-            {/* Mental Health Blogs */}
-            <div className="glass animate-fade-in-up delay-300" style={{ flex: 1, padding: '2rem', minWidth: '280px' }}>
+            {/* Mental Health Wisdom Blogs Wrapper */}
+            <div className="glass animate-fade-in-up delay-300" style={{ flex: 1, padding: '2rem', minWidth: '250px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
                 <BookOpen size={24} color="var(--primary)" />
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 500 }}>Wisdom & Reading</h3>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 500 }}>
+                  Wisdom for {userProfile.exams.join(' & ')} Students
+                </h3>
               </div>
               
               {loadingBlogs ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-                  <Loader2 className="animate-spin" size={24} opacity={0.5} />
+                  <div className="cosmic-loader"><span></span><span></span><span></span></div>
                 </div>
               ) : (
                 <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {blogs.map((blog, idx) => (
-                    <li key={idx}>
+                  {blogs.map((blog, blogIndex) => (
+                    <li key={blogIndex}>
                       <a href={blog.link} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '1rem', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border)', transition: 'all 0.2s' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
                           <Heart size={16} color="#ff6b6b" style={{ flexShrink: 0, marginTop: '4px' }} />
@@ -314,7 +383,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right Embedded Chat Widget */}
+        {/* Right Area: Embedded AI Chat Widget */}
         <div className="animate-slide-in-right delay-400" style={{ flex: '0 0 400px' }}>
           <div className="glass" style={{ height: '70vh', position: 'sticky', top: '2rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             
@@ -326,28 +395,56 @@ export default function Dashboard() {
 
             {/* Chat Body */}
             <main style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--card-bg)' }}>
-              {messages.map((m, idx) => (
-                <div key={idx} style={{ 
-                  alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              {messages.map((chatMessage, messageIndex) => (
+                <div key={messageIndex} style={{ 
+                  alignSelf: chatMessage.role === 'user' ? 'flex-end' : 'flex-start',
                   maxWidth: '85%',
                   padding: '1rem',
                   borderRadius: '16px',
-                  backgroundColor: m.role === 'user' ? 'var(--user-bubble)' : 'var(--guru-bubble)',
+                  backgroundColor: chatMessage.role === 'user' ? 'var(--user-bubble)' : 'var(--guru-bubble)',
                   boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
                   border: '1px solid var(--border)',
                   lineHeight: 1.5,
                   fontSize: '0.95rem'
                 }}>
-                  {m.content}
+                  {/* Markdown Renderer ensures URLs open in new tabs and render safely */}
+                  <div className="markdown-body">
+                    {chatMessage.role === 'user' ? chatMessage.content : (
+                      <ReactMarkdown 
+                        components={{
+                          a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+                          img: ({node, ...props}) => (
+                            <img 
+                              {...props} 
+                              style={{ 
+                                maxWidth: '100%', 
+                                height: 'auto', 
+                                borderRadius: '12px', 
+                                marginTop: '0.8rem', 
+                                marginBottom: '0.8rem',
+                                display: 'block',
+                                objectFit: 'contain',
+                                border: '1px solid var(--border)',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                              }} 
+                            />
+                          )
+                        }}
+                      >
+                        {chatMessage.content}
+                      </ReactMarkdown>
+                    )}
+                  </div>
                 </div>
               ))}
               
               {loading && (
                 <div style={{ alignSelf: 'flex-start', padding: '1rem' }}>
-                  <Loader2 className="animate-spin" size={18} style={{ animation: 'spin 2s linear infinite', opacity: 0.5 }} />
+                  <div className="cosmic-loader"><span></span><span></span><span></span></div>
                 </div>
               )}
 
+              {/* Stress animation appears briefly if anxious keywords are detected */}
               {isStressed && (
                 <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
                   <p style={{ opacity: 0.7, marginBottom: '1rem', fontSize: '0.9rem' }}>Breathe with me...</p>
@@ -357,7 +454,7 @@ export default function Dashboard() {
               <div ref={messagesEndRef} />
             </main>
 
-            {/* Chat Input */}
+            {/* Chat Input Field */}
             <footer style={{ padding: '1rem', background: 'var(--card-bg)', borderTop: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input 
@@ -382,6 +479,13 @@ export default function Dashboard() {
 
           </div>
         </div>
+        
+        {/* Far Right Area: Habit & Check-in Tracker */}
+        <CheckinTracker 
+          checkins={checkins} 
+          hasReward={hasReward} 
+          onRewardClick={handleRewardClick} 
+        />
 
       </div>
     </div>

@@ -9,7 +9,7 @@ export default function AudioPlayer() {
 
   useEffect(() => {
     // We create the audio element in useEffect to avoid hydration errors
-    audioRef.current = new Audio('https://cdn.pixabay.com/download/audio/2022/05/16/audio_96489379e5.mp3?filename=ambient-piano-amp-strings-10711.mp3');
+    audioRef.current = new Audio('https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3'); // NCS/Chill Lofi Track
     audioRef.current.loop = true;
     audioRef.current.volume = 0.3; // Soft background volume
   }, []);
