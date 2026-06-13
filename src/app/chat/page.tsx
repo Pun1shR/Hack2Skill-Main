@@ -16,8 +16,8 @@ import GroundingExercise from '@/components/dashboard/GroundingExercise';
 import RewardModal from '@/components/dashboard/RewardModal';
 import ExamSelectionModal from '@/components/dashboard/ExamSelectionModal';
 import IframeModal from '@/components/dashboard/IframeModal';
+import DeveloperPanel from '@/components/dashboard/DeveloperPanel';
 
-// Types for Blogs scraped from the web
 interface Blog {
   title: string;
   link: string;
@@ -59,18 +59,16 @@ export default function Dashboard() {
 
   /**
    * Initializes user profile and check-in streak data from localStorage upon mounting.
-   * If the user doesn't have 5 days of check-ins, dummy data is injected to demonstrate the reward UI.
    */
   useEffect(() => {
-    const userId = localStorage.getItem('guru_user_id');
+    let userId = localStorage.getItem('guru_user_id');
     if (!userId || !USERS[userId]) {
-      router.push('/login');
-      return;
+      userId = 'eng';
+      localStorage.setItem('guru_user_id', 'eng');
     } 
 
     const profile = { ...USERS[userId] };
     
-    // Check if exams were already selected in local storage
     const savedExams = localStorage.getItem('guru_selected_exams');
     if (savedExams) {
       profile.exams = JSON.parse(savedExams);
@@ -80,32 +78,14 @@ export default function Dashboard() {
       setShowExamModal(true);
     }
 
-    // Load Checkins from localStorage
     let checkinArray = [];
     const savedCheckins = localStorage.getItem('guru_checkin_dates');
     if (savedCheckins) {
       checkinArray = JSON.parse(savedCheckins);
     }
-
-    // FORCE DUMMY DATA FOR TESTING 5 DAY STREAK
-    // Injects 5 consecutive days of check-ins so the reward UI is immediately testable.
-    if (checkinArray.length < 5 || !localStorage.getItem('guru_claimed_reward')) {
-      const today = new Date();
-      checkinArray = [];
-      for(let dayOffset = 0; dayOffset < 5; dayOffset++) {
-        const targetDate = new Date();
-        targetDate.setDate(today.getDate() - dayOffset);
-        checkinArray.push(targetDate.toISOString().split('T')[0]);
-      }
-      localStorage.setItem('guru_checkin_dates', JSON.stringify(checkinArray));
-    }
-    
     setCheckins(checkinArray);
   }, [router]);
 
-  /**
-   * Scrapes mental health and wellness blogs dynamically from the API route.
-   */
   useEffect(() => {
     fetch('/api/blogs')
       .then(res => res.json())
@@ -116,25 +96,16 @@ export default function Dashboard() {
       .catch(() => setLoadingBlogs(false));
   }, []);
 
-  /**
-   * Auto-scrolls the chat window to the bottom when new messages arrive.
-   */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStressed]);
 
-  /**
-   * Clears session data and redirects the user to the login page.
-   */
   const handleLogout = () => {
     localStorage.removeItem('guru_user_id');
     localStorage.removeItem('guru_selected_exams');
     router.push('/login');
   };
 
-  /**
-   * Saves the user's selected exams to localStorage and updates the profile state.
-   */
   const handleSaveExams = () => {
     if (selectedExams.length === 0) return;
     localStorage.setItem('guru_selected_exams', JSON.stringify(selectedExams));
@@ -144,9 +115,6 @@ export default function Dashboard() {
     setShowExamModal(false);
   };
 
-  /**
-   * Toggles exam selection state in the onboarding modal.
-   */
   const toggleExam = (exam: string) => {
     if (selectedExams.includes(exam)) {
       setSelectedExams(selectedExams.filter(e => e !== exam));
@@ -155,11 +123,6 @@ export default function Dashboard() {
     }
   };
 
-  /**
-   * Checks if the user has maintained a continuous 5-day check-in streak.
-   * @param newCheckins Array of ISO date strings representing days the user checked in.
-   * @returns boolean true if the last 5 days exist in the array.
-   */
   const checkStreak = (newCheckins: string[]) => {
     const today = new Date();
     for(let dayOffset = 0; dayOffset < 5; dayOffset++) {
@@ -174,25 +137,17 @@ export default function Dashboard() {
   
   const hasReward = checkStreak(checkins);
 
-  /**
-   * Opens the Reward modal when the golden gift box is clicked.
-   */
   const handleRewardClick = () => {
     setShowRewardModal(true);
     localStorage.setItem('guru_claimed_reward', 'true');
   };
 
-  /**
-   * Submits the user's message to the Gemini Generative AI backend.
-   * Handles local storage check-in persistence, simple stress keyword detection, and real-time text streaming.
-   */
   const handleSend = async () => {
     if (!input.trim() || !userProfile) return;
     
     const userMessage = input.trim();
     setInput('');
 
-    // --- Record Check-in Logic ---
     const todayStr = new Date().toISOString().split('T')[0];
     if (!checkins.includes(todayStr)) {
       const updatedCheckins = [...checkins, todayStr];
@@ -200,21 +155,17 @@ export default function Dashboard() {
       localStorage.setItem('guru_checkin_dates', JSON.stringify(updatedCheckins));
     }
     
-    // --- Stress Detection ---
-    // Simple heuristic to detect if the user is overwhelmed, triggering a subtle UI reminder to breathe.
     const stressWords = ['stress', 'anxious', 'panic', 'overwhelm', 'scared', 'nervous'];
     if (stressWords.some(word => userMessage.toLowerCase().includes(word))) {
       setIsStressed(true);
-      setTimeout(() => setIsStressed(false), 24000); // 24s corresponds to exactly 3 cycles of 4-7-8 breathing
+      setTimeout(() => setIsStressed(false), 24000); 
     }
 
-    // --- Prepare Messages ---
     const newMessages = [...messages, { role: 'user', content: userMessage }];
     setMessages(newMessages);
     setLoading(true);
 
     try {
-      // Connect to the Next.js API route that interfaces with the Google Generative AI SDK
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -225,15 +176,13 @@ export default function Dashboard() {
         }),
       });
 
-      if (!response.body) throw new Error("No response body received from the cosmic API.");
+      if (!response.body) throw new Error("No response body received");
 
-      // Read the streamed response chunk by chunk to create a real-time typing effect
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let done = false;
       let text = '';
 
-      // Append an empty model message block that we will continuously update as chunks arrive
       setMessages(prev => [...prev, { role: 'model', content: '' }]);
 
       while (!done) {
@@ -242,7 +191,6 @@ export default function Dashboard() {
         const chunkValue = decoder.decode(value, { stream: true });
         text += chunkValue;
         
-        // Update the last message in the array with the accumulated text
         setMessages(prev => {
           const updated = [...prev];
           updated[updated.length - 1].content = text;
@@ -257,17 +205,45 @@ export default function Dashboard() {
     }
   };
 
-  // Render a loading state if the user profile hasn't initialized from local storage yet.
+  // --- Developer Panel Callbacks ---
+  const handleDevClearData = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
+
+  const handleDevSetStreak = () => {
+    const today = new Date();
+    const mockCheckins = [];
+    for(let dayOffset = 0; dayOffset < 5; dayOffset++) {
+      const targetDate = new Date();
+      targetDate.setDate(today.getDate() - dayOffset);
+      mockCheckins.push(targetDate.toISOString().split('T')[0]);
+    }
+    localStorage.setItem('guru_checkin_dates', JSON.stringify(mockCheckins));
+    setCheckins(mockCheckins);
+  };
+
+  const handleDevResetStreak = () => {
+    localStorage.setItem('guru_checkin_dates', '[]');
+    setCheckins([]);
+  };
+
+  const handleDevTriggerAnxiety = () => {
+    setIsStressed(true);
+    setTimeout(() => setIsStressed(false), 24000); 
+  };
+
+
   if (!userProfile) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div data-testid="loading-screen" style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         Connecting to the cosmos...
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div data-testid="dashboard-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       
       {/* Modals & Overlays */}
       {iframeUrl && <IframeModal url={iframeUrl} onClose={() => setIframeUrl(null)} />}
@@ -289,7 +265,13 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Serene Landscape Banner */}
+      <DeveloperPanel 
+        onClearData={handleDevClearData}
+        onSetStreak={handleDevSetStreak}
+        onResetStreak={handleDevResetStreak}
+        onTriggerAnxiety={handleDevTriggerAnxiety}
+      />
+
       <div className="animate-fade-in-up" style={{ width: '100%', height: '35vh', position: 'absolute', top: 0, left: 0, zIndex: -1, overflow: 'hidden', opacity: theme === 'dark' ? 0.3 : 0.8 }}>
         <Image src="/serene-landscape.png" alt="Serene Landscape" fill style={{ objectFit: 'cover' }} priority />
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '150px', background: 'linear-gradient(to top, var(--background), transparent)' }}></div>
@@ -303,15 +285,15 @@ export default function Dashboard() {
       )}
 
       {/* Global Header */}
-      <header className="glass animate-fade-in-up" style={{ margin: '1rem', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '16px', position: 'relative', zIndex: 10 }}>
+      <header data-testid="dashboard-header" className="glass animate-fade-in-up" style={{ margin: '1rem', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '16px', position: 'relative', zIndex: 10 }}>
         <h1 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Sanctuary</h1>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <AudioPlayer />
-          <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }} title="Toggle Theme">
-            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          <button data-testid="theme-toggle-btn" aria-label={`Toggle Theme to ${theme === 'light' ? 'Dark' : 'Light'}`} onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }}>
+            {theme === 'light' ? <Moon size={20} aria-hidden="true" /> : <Sun size={20} aria-hidden="true" />}
           </button>
-          <button onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }} title="Logout">
-            <LogOut size={20} />
+          <button data-testid="logout-btn" aria-label="Log Out" onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }}>
+            <LogOut size={20} aria-hidden="true" />
           </button>
         </div>
       </header>
@@ -322,7 +304,7 @@ export default function Dashboard() {
         {/* Left Sanctuary Area: Mascot, Affirmations, Exercises, and Blogs */}
         <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          <div className="animate-fade-in-up delay-100" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+          <div data-testid="greeting-section" className="animate-fade-in-up delay-100" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
             <Image src="/guru-mascot.png" alt="Cosmic Guru Mascot" width={180} height={180} style={{ borderRadius: '50%', background: 'var(--card-bg)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }} />
             <div>
               <h2 style={{ fontSize: '2.5rem', fontWeight: 300, marginBottom: '0.5rem' }}>Welcome back, {userProfile.preferredName.split(' ')[0]}.</h2>
@@ -334,17 +316,31 @@ export default function Dashboard() {
 
           <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
             {/* Mind Control Exercises Wrapper */}
-            <div className="glass animate-fade-in-up delay-200" style={{ flex: 1, padding: '2rem', minWidth: '250px' }}>
+            <div data-testid="exercises-section" className="glass animate-fade-in-up delay-200" style={{ flex: 1, padding: '2rem', minWidth: '250px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                <Wind size={24} color="var(--primary)" />
+                <Wind size={24} color="var(--primary)" aria-hidden="true" />
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 500 }}>Mind Control Exercises</h3>
               </div>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <li onClick={() => setActiveModal('breathing')} style={{ padding: '1rem', background: 'var(--input-bg)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: '1px solid var(--border)' }}>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }} aria-label="Mindfulness Exercises List">
+                <li 
+                  role="button"
+                  tabIndex={0}
+                  data-testid="exercise-breathing-btn"
+                  onClick={() => setActiveModal('breathing')}
+                  onKeyDown={(e) => e.key === 'Enter' && setActiveModal('breathing')}
+                  style={{ padding: '1rem', background: 'var(--input-bg)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: '1px solid var(--border)' }}
+                >
                   <span>4-7-8 Breathing Timer</span>
                   <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Interactive</span>
                 </li>
-                <li onClick={() => setActiveModal('grounding')} style={{ padding: '1rem', background: 'var(--input-bg)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: '1px solid var(--border)' }}>
+                <li 
+                  role="button"
+                  tabIndex={0}
+                  data-testid="exercise-grounding-btn"
+                  onClick={() => setActiveModal('grounding')} 
+                  onKeyDown={(e) => e.key === 'Enter' && setActiveModal('grounding')}
+                  style={{ padding: '1rem', background: 'var(--input-bg)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: '1px solid var(--border)' }}
+                >
                   <span>Grounding (5-4-3-2-1)</span>
                   <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>Interactive</span>
                 </li>
@@ -352,25 +348,25 @@ export default function Dashboard() {
             </div>
 
             {/* Mental Health Wisdom Blogs Wrapper */}
-            <div className="glass animate-fade-in-up delay-300" style={{ flex: 1, padding: '2rem', minWidth: '250px' }}>
+            <div data-testid="blogs-section" className="glass animate-fade-in-up delay-300" style={{ flex: 1, padding: '2rem', minWidth: '250px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                <BookOpen size={24} color="var(--primary)" />
+                <BookOpen size={24} color="var(--primary)" aria-hidden="true" />
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 500 }}>
                   Wisdom for {userProfile.exams.join(' & ')} Students
                 </h3>
               </div>
               
               {loadingBlogs ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                <div data-testid="blogs-loading" style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                   <div className="cosmic-loader"><span></span><span></span><span></span></div>
                 </div>
               ) : (
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '1rem' }} aria-label="Mental Health Articles">
                   {blogs.map((blog, blogIndex) => (
-                    <li key={blogIndex}>
-                      <a href={blog.link} target="_blank" rel="noopener noreferrer" style={{ display: 'block', padding: '1rem', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border)', transition: 'all 0.2s' }}>
+                    <li key={blogIndex} data-testid={`blog-item-${blogIndex}`}>
+                      <a href={blog.link} target="_blank" rel="noopener noreferrer" aria-label={`Read article: ${blog.title}`} style={{ display: 'block', padding: '1rem', background: 'var(--input-bg)', borderRadius: '12px', border: '1px solid var(--border)', transition: 'all 0.2s' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-                          <Heart size={16} color="#ff6b6b" style={{ flexShrink: 0, marginTop: '4px' }} />
+                          <Heart size={16} color="#ff6b6b" aria-hidden="true" style={{ flexShrink: 0, marginTop: '4px' }} />
                           <div>
                             <span style={{ display: 'block', fontWeight: 500, fontSize: '0.95rem', marginBottom: '0.2rem' }}>{blog.title}</span>
                             <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>via {blog.source}</span>
@@ -387,19 +383,17 @@ export default function Dashboard() {
         </div>
 
         {/* Right Area: Embedded AI Chat Widget */}
-        <div className="animate-slide-in-right delay-400" style={{ flex: '0 0 400px' }}>
+        <div data-testid="chat-widget" className="animate-slide-in-right delay-400" style={{ flex: '0 0 400px' }}>
           <div className="glass" style={{ height: '70vh', position: 'sticky', top: '2rem', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             
-            {/* Chat Header */}
             <div style={{ padding: '1rem 1.5rem', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.8rem', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}>
-              <Image src="/guru-mascot.png" alt="Guru" width={30} height={30} style={{ borderRadius: '50%', background: 'white' }} />
+              <Image src="/guru-mascot.png" alt="Guru Avatar" width={30} height={30} style={{ borderRadius: '50%', background: 'white' }} />
               <span style={{ fontWeight: 500 }}>Your Cosmic Guide</span>
             </div>
 
-            {/* Chat Body */}
-            <main style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--card-bg)' }}>
+            <main data-testid="chat-history" aria-live="polite" style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'var(--card-bg)' }}>
               {messages.map((chatMessage, messageIndex) => (
-                <div key={messageIndex} style={{ 
+                <div data-testid={`chat-bubble-${chatMessage.role}`} key={messageIndex} style={{ 
                   alignSelf: chatMessage.role === 'user' ? 'flex-end' : 'flex-start',
                   maxWidth: '85%',
                   padding: '1rem',
@@ -410,7 +404,6 @@ export default function Dashboard() {
                   lineHeight: 1.5,
                   fontSize: '0.95rem'
                 }}>
-                  {/* Markdown Renderer ensures URLs open in new tabs and render safely */}
                   <div className="markdown-body">
                     {chatMessage.role === 'user' ? chatMessage.content : (
                       <ReactMarkdown 
@@ -423,6 +416,7 @@ export default function Dashboard() {
                                 if(href) setIframeUrl(href);
                               }}
                               style={{ color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
+                              aria-label={`Open ${href} in popup`}
                               {...props}
                             >
                               {children}
@@ -438,14 +432,13 @@ export default function Dashboard() {
               ))}
               
               {loading && (
-                <div style={{ alignSelf: 'flex-start', padding: '1rem' }}>
+                <div data-testid="chat-loading-spinner" style={{ alignSelf: 'flex-start', padding: '1rem' }} aria-label="Guru is typing...">
                   <div className="cosmic-loader"><span></span><span></span><span></span></div>
                 </div>
               )}
 
-              {/* Stress animation appears briefly if anxious keywords are detected */}
               {isStressed && (
-                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
+                <div data-testid="chat-stress-animation" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
                   <p style={{ opacity: 0.7, marginBottom: '1rem', fontSize: '0.9rem' }}>Breathe with me...</p>
                   <div className="breathing-circle" style={{ width: '100px', height: '100px', margin: '1rem auto' }}></div>
                 </div>
@@ -453,11 +446,12 @@ export default function Dashboard() {
               <div ref={messagesEndRef} />
             </main>
 
-            {/* Chat Input Field */}
             <footer style={{ padding: '1rem', background: 'var(--card-bg)', borderTop: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input 
+                  data-testid="chat-input"
                   type="text" 
+                  aria-label="Message Input"
                   className="input-field"
                   style={{ flex: 1, padding: '10px 14px', fontSize: '0.9rem' }}
                   placeholder="Ask for guidance..."
@@ -466,12 +460,14 @@ export default function Dashboard() {
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 />
                 <button 
+                  data-testid="chat-send-btn"
+                  aria-label="Send Message"
                   className="btn" 
                   style={{ padding: '10px', borderRadius: '12px' }}
                   onClick={handleSend}
                   disabled={!input.trim() || loading}
                 >
-                  <Send size={16} />
+                  <Send size={16} aria-hidden="true" />
                 </button>
               </div>
             </footer>

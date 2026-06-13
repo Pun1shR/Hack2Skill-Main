@@ -25,26 +25,43 @@ export default function GroundingExercise({ onClose }: GroundingExerciseProps) {
   };
 
   return (
-    <div className="glass animate-fade-in-up" style={{ padding: '2rem', position: 'relative', width: '100%', maxWidth: '500px' }}>
-      <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }}>
-        <X size={24} />
+    <div 
+      data-testid="grounding-exercise-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="grounding-title"
+      className="glass animate-fade-in-up" 
+      style={{ padding: '2rem', position: 'relative', width: '100%', maxWidth: '500px' }}
+    >
+      <button data-testid="grounding-close-btn" aria-label="Close Grounding Exercise" onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)' }}>
+        <X size={24} aria-hidden="true" />
       </button>
-      <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>5-4-3-2-1 Grounding</h2>
+      <h2 id="grounding-title" style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>5-4-3-2-1 Grounding</h2>
       <p style={{ opacity: 0.8, marginBottom: '2rem' }}>Look away from the screen and check these off as you find them.</p>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }} role="list" aria-label="Grounding Checklist">
         {steps.map((step, index) => {
           const isChecked = checked.includes(index);
           return (
             <div 
               key={index} 
+              data-testid={`grounding-step-${index}`}
+              role="checkbox"
+              aria-checked={isChecked}
+              tabIndex={0}
               onClick={() => toggle(index)} 
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggle(index);
+                }
+              }}
               style={{ 
                 display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', 
                 background: isChecked ? 'var(--primary-glow)' : 'var(--input-bg)', 
                 borderRadius: '12px', cursor: 'pointer', transition: 'all 0.3s ease' 
               }}>
-              {isChecked ? <CheckSquare color="var(--primary)" /> : <Square opacity={0.5} />}
+              {isChecked ? <CheckSquare color="var(--primary)" aria-hidden="true" /> : <Square opacity={0.5} aria-hidden="true" />}
               <span style={{ textDecoration: isChecked ? 'line-through' : 'none', opacity: isChecked ? 0.6 : 1 }}>
                 {step.label}
               </span>
@@ -52,7 +69,7 @@ export default function GroundingExercise({ onClose }: GroundingExerciseProps) {
           );
         })}
       </div>
-      {checked.length === 5 && <p style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 'bold' }}>You are safe. You are grounded.</p>}
+      {checked.length === 5 && <p data-testid="grounding-success-msg" aria-live="polite" style={{ marginTop: '2rem', textAlign: 'center', color: 'var(--primary)', fontWeight: 'bold' }}>You are safe. You are grounded.</p>}
     </div>
   );
 }

@@ -22,11 +22,11 @@ export default function CheckinTracker({ checkins, hasReward, onRewardClick }: C
   }
   
   return (
-    <div className="animate-slide-in-right delay-400" style={{ position: 'relative', height: '70vh', width: '100px', display: 'flex', flexDirection: 'column' }}>
+    <div data-testid="checkin-tracker" className="animate-slide-in-right delay-400" style={{ position: 'relative', height: '70vh', width: '100px', display: 'flex', flexDirection: 'column' }}>
       {/* Top Gradient Mask for smooth scrolling fade out */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '60px', background: 'linear-gradient(to bottom, var(--background), transparent)', zIndex: 10, pointerEvents: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px' }}></div>
       
-      <div className="glass" style={{ flex: 1, overflowY: 'auto', padding: '3rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div data-testid="checkin-scroll-area" className="glass" style={{ flex: 1, overflowY: 'auto', padding: '3rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <style jsx>{`
           div::-webkit-scrollbar { display: none; }
         `}</style>
@@ -39,12 +39,22 @@ export default function CheckinTracker({ checkins, hasReward, onRewardClick }: C
           const isGolden = isToday && hasReward && isChecked;
 
           return (
-            <div key={dateStr} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: isToday ? 1 : 0.8 }}>
+            <div data-testid={`tracker-day-${index}`} key={dateStr} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: isToday ? 1 : 0.8 }}>
               <span style={{ fontSize: '0.65rem', fontWeight: isToday ? 600 : 400, color: isGolden ? '#FFD700' : 'inherit' }}>
                 {isToday ? 'Today' : dateStr.slice(5).replace('-', '/')}
               </span>
               <div 
+                role={isGolden ? "button" : "presentation"}
+                tabIndex={isGolden ? 0 : -1}
+                aria-label={isGolden ? "Claim 5-Day Reward" : (isChecked ? "Checked In" : "Missed Checkin")}
                 onClick={() => isGolden && onRewardClick()}
+                onKeyDown={(e) => {
+                  if (isGolden && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onRewardClick();
+                  }
+                }}
+                data-testid={isGolden ? "golden-reward-box" : `tracker-box-${index}`}
                 style={{ 
                   width: '36px', height: '36px', borderRadius: '10px', 
                   background: isGolden ? 'linear-gradient(135deg, #FFD700, #FDB931)' : isChecked ? 'var(--primary)' : 'var(--input-bg)',
@@ -55,7 +65,7 @@ export default function CheckinTracker({ checkins, hasReward, onRewardClick }: C
                   transition: 'all 0.3s ease',
                   cursor: isGolden ? 'pointer' : 'default'
                 }}>
-                {isGolden ? <span style={{fontSize: '1.2rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)'}}>🎁</span> : isChecked ? <CheckSquare size={16} color="white" /> : <Calendar size={14} opacity={0.3} />}
+                {isGolden ? <span aria-hidden="true" style={{fontSize: '1.2rem', textShadow: '0 2px 4px rgba(0,0,0,0.2)'}}>🎁</span> : isChecked ? <CheckSquare size={16} color="white" aria-hidden="true" /> : <Calendar size={14} opacity={0.3} aria-hidden="true" />}
               </div>
             </div>
           );
